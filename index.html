@@ -90,6 +90,53 @@
     cursor: pointer;
   }
   button.copy:active { background: #15803d; }
+  button.calc {
+    width: 100%;
+    margin-top: 16px;
+    padding: 12px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #fff;
+    background: #2563eb;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  button.calc:active { background: #1d4ed8; }
+  .history { margin-top: 18px; }
+  .history-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .history-head h2 { font-size: 1rem; }
+  button.clear {
+    font-size: .8rem;
+    padding: 6px 10px;
+    color: #b91c1c;
+    background: #fff;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .history ul { list-style: none; }
+  .history li {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: .85rem;
+    line-height: 1.7;
+    margin-bottom: 8px;
+  }
+  .history li .date { font-weight: 700; }
+  .history .empty {
+    color: #9ca3af;
+    font-size: .85rem;
+    text-align: center;
+    padding: 12px;
+  }
 </style>
 </head>
 <body>
@@ -115,6 +162,8 @@
     <label for="price">球一顆多少錢（元）</label>
     <input id="price" type="number" min="0" value="50">
 
+    <button class="calc" id="calcBtn">計算並存入紀錄</button>
+
     <div class="error" id="error"></div>
 
     <div class="result" id="result">
@@ -137,6 +186,15 @@
         <div>進位多收 <b>$<span id="dDiff">0</span></b></div>
       </div>
       <button class="copy" id="copyBtn">📋 複製結果貼到群組</button>
+    </div>
+
+    <div class="history">
+      <div class="history-head">
+        <h2>📝 歷史紀錄</h2>
+        <button class="clear" id="clearBtn">清除紀錄</button>
+      </div>
+      <ul id="historyList"></ul>
+      <div class="empty" id="historyEmpty">尚無紀錄</div>
     </div>
   </div>
 </div>
@@ -185,10 +243,49 @@ function calc() {
 
   err.style.display = 'none';
   res.classList.add('show');
+  return { oldPay, newPay, oldCount, fresh };
 }
 
 inputs.forEach(el => el.addEventListener('input', calc));
 calc();
+
+const KEY = 'clubFeesHistory';
+const loadHistory = () => {
+  try { return JSON.parse(localStorage.getItem(KEY)) || []; }
+  catch { return []; }
+};
+const saveHistory = list => localStorage.setItem(KEY, JSON.stringify(list));
+const todayStr = () => new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' });
+
+function renderHistory() {
+  const list = loadHistory();
+  const ul = $('historyList');
+  ul.innerHTML = '';
+  $('historyEmpty').style.display = list.length ? 'none' : 'block';
+  list.forEach(h => {
+    const li = document.createElement('li');
+    li.textContent = `${h.date}：老社員 $${h.oldPay} × ${h.oldCount} 位、新人 $${h.newPay} × ${h.fresh} 位`;
+    ul.appendChild(li);
+  });
+}
+
+$('calcBtn').addEventListener('click', () => {
+  const r = calc();
+  if (!r) return;
+  const list = loadHistory();
+  list.unshift({ date: todayStr(), oldPay: r.oldPay, newPay: r.newPay, oldCount: r.oldCount, fresh: r.fresh });
+  saveHistory(list);
+  renderHistory();
+});
+
+$('clearBtn').addEventListener('click', () => {
+  if (!loadHistory().length) return;
+  if (!confirm('確定要清除全部歷史紀錄嗎？')) return;
+  saveHistory([]);
+  renderHistory();
+});
+
+renderHistory();
 
 $('copyBtn').addEventListener('click', async () => {
   const text =
